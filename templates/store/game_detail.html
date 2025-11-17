@@ -1,0 +1,129 @@
+{% extends 'home.html' %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-10">
+    <div class="card">
+      {% if game.image_url %}
+      <img src="{{ game.image_url }}" class="card-img-top" alt="{{ game.title }}" style="height: 400px; object-fit: cover;">
+      {% endif %}
+      
+      <!-- Статусы игры -->
+      <div class="position-absolute top-0 start-0 m-3">
+        <div class="d-flex flex-column gap-2">
+          {% if game.is_on_sale %}
+            <span class="badge bg-danger fs-6">-{{ game.discount_percent }}%</span>
+          {% endif %}
+          {% if game.is_new %}
+            <span class="badge bg-success fs-6">NEW</span>
+          {% endif %}
+          {% if game.is_featured %}
+            <span class="badge bg-warning fs-6">Рекомендуемая</span>
+          {% endif %}
+        </div>
+      </div>
+      
+      <div class="card-body">
+        <div class="row">
+          <div class="col-12 col-md-8">
+            <h1 class="card-title">{{ game.title }}</h1>
+            
+            <!-- Категория -->
+            {% if game.category %}
+              <span class="badge bg-primary mb-3">{{ game.category.name }}</span>
+            {% endif %}
+            
+            <p class="card-text fs-5">{{ game.description|default:'Описание скоро появится.' }}</p>
+            
+            <!-- Дополнительная информация -->
+            <div class="row mt-4">
+              {% if game.developer %}
+                <div class="col-md-6">
+                  <strong>Разработчик:</strong> {{ game.developer }}
+                </div>
+              {% endif %}
+              {% if game.publisher %}
+                <div class="col-md-6">
+                  <strong>Издатель:</strong> {{ game.publisher }}
+                </div>
+              {% endif %}
+              {% if game.release_date %}
+                <div class="col-md-6">
+                  <strong>Дата выхода:</strong> {{ game.release_date|date:"d.m.Y" }}
+                </div>
+              {% endif %}
+            </div>
+          </div>
+          
+          <div class="col-12 col-md-4">
+            <div class="card bg-light">
+              <div class="card-body">
+                <h5 class="card-title">Покупка</h5>
+                
+                <!-- Цены -->
+                <div class="mb-3">
+                  {% if game.is_on_sale and game.original_price %}
+                    <div class="d-flex align-items-center mb-2">
+                      <span class="text-decoration-line-through text-muted me-2">{{ game.original_price }}₽</span>
+                      <span class="fw-bold text-danger fs-4">{{ game.discounted_price|floatformat:0 }}₽</span>
+                    </div>
+                    <div class="text-success small">
+                      <i class="bi bi-arrow-down"></i> Экономия: {{ game.savings_amount|floatformat:0 }}₽
+                    </div>
+                  {% else %}
+                    <div class="fw-bold fs-4">{{ game.price }}₽</div>
+                  {% endif %}
+                  
+                  {% if game.points_price %}
+                    <div class="text-muted mt-2">
+                      или <span class="fw-bold">{{ game.points_price }} очков</span>
+                    </div>
+                  {% endif %}
+                </div>
+                
+                {% if owned %}
+                  <div class="alert alert-success">У вас уже есть эта игра.</div>
+                {% else %}
+                  {% if user.is_authenticated %}
+                    <div class="d-grid gap-2">
+                      <form method="post" action="{% url 'store:buy_card' game.id %}">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                          <label for="card_number" class="form-label">Номер карты (заглушка)</label>
+                          <input type="text" class="form-control" id="card_number" name="card_number" 
+                                 placeholder="**** **** **** 1234" value="**** **** **** 1234">
+                        </div>
+                        <div class="mb-3">
+                          <label for="card_holder" class="form-label">Владелец карты (заглушка)</label>
+                          <input type="text" class="form-control" id="card_holder" name="card_holder" 
+                                 placeholder="Иван Иванов" value="Иван Иванов">
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-lg">
+                          💳 Купить картой
+                        </button>
+                      </form>
+                      {% if game.points_price %}
+                      <form method="post" action="{% url 'store:buy_points' game.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-success btn-lg">
+                          🎯 Купить за очки
+                        </button>
+                      </form>
+                      {% endif %}
+                    </div>
+                  {% else %}
+                    <div class="alert alert-warning">
+                      <a href="{% url 'accounts:login' %}" class="btn btn-warning">Войдите</a>, чтобы купить.
+                    </div>
+                  {% endif %}
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+

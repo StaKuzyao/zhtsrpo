@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GameShop</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  </head>
+  <body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+      <div class="container">
+        <a class="navbar-brand" href="/">GameShop</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav" aria-controls="nav" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="nav">
+          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+            <li class="nav-item"><a class="nav-link" href="{% url 'home' %}">Главная</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'store:list' %}">Магазин</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'store:roulette' %}">🎰 Рулетка</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'quiz:play' %}">Викторина</a></li>
+          </ul>
+          <ul class="navbar-nav">
+            {% if user.is_authenticated %}
+              <li class="nav-item"><span class="navbar-text me-3">Баланс: {{ user.balance }} | Очки: {{ user.points }}</span></li>
+              <li class="nav-item"><a class="btn btn-outline-light me-2" href="/accounts/top-up/">Пополнить</a></li>
+              <li class="nav-item">
+                <form method="post" action="{% url 'accounts:logout' %}">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-warning">Выход</button>
+                </form>
+              </li>
+            {% else %}
+              <li class="nav-item"><a class="btn btn-outline-light me-2" href="{% url 'accounts:login' %}">Вход</a></li>
+              <li class="nav-item"><a class="btn btn-primary" href="{% url 'accounts:register' %}">Регистрация</a></li>
+            {% endif %}
+          </ul>
+        </div>
+      </div>
+    </nav>
+    <main class="container py-4">
+      {% block content %}
+        <div class="row mb-5">
+          <div class="col-12">
+            <h1 class="display-4 fw-bold text-center mb-4">Добро пожаловать в GameShop</h1>
+            <p class="text-center text-muted fs-5">Покупайте игры за деньги или за очки из викторины</p>
+          </div>
+        </div>
+
+        <!-- Акции и скидки -->
+        <div class="row mb-5">
+          <div class="col-12">
+            <h2 class="mb-4">
+              <span class="badge bg-danger me-2">🔥</span>
+              Горячие акции
+            </h2>
+            <div class="row g-4">
+              {% for game in featured_games %}
+                <div class="col-12 col-md-6 col-lg-4">
+                  <div class="card h-100 border-danger shadow-sm">
+                    {% if game.is_on_sale %}
+                      <div class="position-absolute top-0 end-0 m-2">
+                        <span class="badge bg-danger fs-6">-{{ game.discount_percent }}%</span>
+                      </div>
+                    {% endif %}
+                    {% if game.image_url %}
+                      <img src="{{ game.image_url }}" class="card-img-top" alt="{{ game.title }}" style="height: 200px; object-fit: cover;">
+                    {% endif %}
+                    <div class="card-body d-flex flex-column">
+                      <h5 class="card-title">{{ game.title }}</h5>
+                      <p class="card-text text-muted">{{ game.description|truncatechars:100 }}</p>
+                      <div class="mt-auto">
+                        <div class="d-flex align-items-center mb-2">
+                          {% if game.is_on_sale and game.original_price %}
+                            <span class="text-decoration-line-through text-muted me-2">{{ game.original_price }}₽</span>
+                            <span class="fw-bold text-danger fs-5">{{ game.discounted_price|floatformat:0 }}₽</span>
+                          {% else %}
+                            <span class="fw-bold fs-5">{{ game.price }}₽</span>
+                          {% endif %}
+                          {% if game.points_price %}
+                            <span class="text-muted ms-2">/ {{ game.points_price }} очков</span>
+                          {% endif %}
+                        </div>
+                        <div class="d-flex gap-2">
+                          <span class="badge bg-primary">{{ game.category.name }}</span>
+                          {% if game.is_new %}
+                            <span class="badge bg-success">Новинка</span>
+                          {% endif %}
+                          {% if game.is_on_sale %}
+                            <span class="badge bg-danger">Скидка</span>
+                          {% endif %}
+                        </div>
+                        <a class="btn btn-primary w-100 mt-2" href="{% url 'store:detail' game.id %}">Подробнее</a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              {% empty %}
+                <div class="col-12">
+                  <div class="alert alert-info">Пока нет рекомендуемых игр</div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Распродажи -->
+        <div class="row mb-5">
+          <div class="col-12">
+            <h2 class="mb-4">
+              <span class="badge bg-warning me-2">💰</span>
+              Распродажи
+            </h2>
+            <div class="row g-4">
+              {% for game in sale_games %}
+                <div class="col-12 col-md-6 col-lg-3">
+                  <div class="card h-100 border-warning">
+                    <div class="position-absolute top-0 end-0 m-2">
+                      <span class="badge bg-warning text-dark fs-6">Скидка {{ game.discount_percent }}%</span>
+                    </div>
+                    {% if game.image_url %}
+                      <img src="{{ game.image_url }}" class="card-img-top" alt="{{ game.title }}" style="height: 150px; object-fit: cover;">
+                    {% endif %}
+                    <div class="card-body d-flex flex-column">
+                      <h6 class="card-title">{{ game.title }}</h6>
+                      <div class="mt-auto">
+                        <div class="d-flex align-items-center mb-2">
+                          <span class="text-decoration-line-through text-muted me-2 small">{{ game.original_price }}₽</span>
+                          <span class="fw-bold text-warning">{{ game.discounted_price|floatformat:0 }}₽</span>
+                        </div>
+                        <a class="btn btn-warning btn-sm w-100" href="{% url 'store:detail' game.id %}">Купить</a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              {% empty %}
+                <div class="col-12">
+                  <div class="alert alert-info">Пока нет игр на распродаже</div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Новинки -->
+        <div class="row mb-5">
+          <div class="col-12">
+            <h2 class="mb-4">
+              <span class="badge bg-success me-2">✨</span>
+              Новинки
+            </h2>
+            <div class="row g-4">
+              {% for game in new_games %}
+                <div class="col-12 col-md-6 col-lg-3">
+                  <div class="card h-100 border-success">
+                    <div class="position-absolute top-0 end-0 m-2">
+                      <span class="badge bg-success fs-6">NEW</span>
+                    </div>
+                    {% if game.image_url %}
+                      <img src="{{ game.image_url }}" class="card-img-top" alt="{{ game.title }}" style="height: 150px; object-fit: cover;">
+                    {% endif %}
+                    <div class="card-body d-flex flex-column">
+                      <h6 class="card-title">{{ game.title }}</h6>
+                      <div class="mt-auto">
+                        <span class="fw-bold">{{ game.price }}₽</span>
+                        <a class="btn btn-success btn-sm w-100 mt-2" href="{% url 'store:detail' game.id %}">Подробнее</a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              {% empty %}
+                <div class="col-12">
+                  <div class="alert alert-info">Пока нет новых игр</div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Категории -->
+        <div class="row mb-5">
+          <div class="col-12">
+            <h2 class="mb-4">
+              <span class="badge bg-info me-2">🎮</span>
+              Категории игр
+            </h2>
+            <div class="row g-3">
+              {% for category in categories %}
+                <div class="col-6 col-md-4 col-lg-3">
+                  <div class="card text-center h-100">
+                    <div class="card-body">
+                      <h6 class="card-title">{{ category.name }}</h6>
+                      <p class="card-text small text-muted">{{ category.description|truncatechars:60 }}</p>
+                      <a class="btn btn-outline-primary btn-sm" href="{% url 'store:list' %}?category={{ category.slug }}">
+                        Смотреть игры
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              {% empty %}
+                <div class="col-12">
+                  <div class="alert alert-info">Пока нет категорий</div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Призыв к действию -->
+        <div class="row">
+          <div class="col-12">
+            <div class="card bg-primary text-white text-center py-5">
+              <div class="card-body">
+                <h3 class="card-title">Начните играть прямо сейчас!</h3>
+                <p class="card-text">Выберите из сотен игр или заработайте очки в викторине</p>
+                <div class="d-flex gap-3 justify-content-center">
+                  <a class="btn btn-light btn-lg" href="{% url 'store:list' %}">Перейти в магазин</a>
+                  <a class="btn btn-outline-light btn-lg" href="{% url 'quiz:play' %}">Играть в викторину</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endblock %}
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+  </body>
+  </html>
+
+

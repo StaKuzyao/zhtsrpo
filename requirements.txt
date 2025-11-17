@@ -1,0 +1,7 @@
+Django==5.2.7
+googletrans==4.0.0rc1
+requests==2.32.5
+httpx==0.13.3
+httpcore==0.9.1
+certifi==2025.10.5
+

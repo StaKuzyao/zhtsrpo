@@ -1,0 +1,214 @@
+{% extends 'home.html' %}
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-12 col-lg-10">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">🎰 Рулетка игр</h2>
+        <div class="d-flex align-items-center gap-3">
+          <div class="badge bg-primary fs-6">
+            Попыток: {{ attempt.attempts_remaining }}/{{ attempt.max_attempts }}
+          </div>
+          <div class="badge bg-success fs-6">
+            Баланс: {{ user.balance }}₽
+          </div>
+        </div>
+      </div>
+
+      {% if attempt.attempts_remaining > 0 %}
+        <div class="row">
+          <div class="col-12 col-md-8">
+            <div class="card">
+              <div class="card-body">
+                <h4 class="card-title">Выберите рулетку</h4>
+                <div class="row g-3">
+                  {% for roulette_game in roulette_games %}
+                    <div class="col-12 col-sm-6">
+                      <div class="card h-100 roulette-option" data-game-id="{{ roulette_game.id }}" data-price="{{ roulette_game.price }}">
+                        {% if roulette_game.image_url %}
+                          <img src="{{ roulette_game.image_url }}" class="card-img-top" alt="{{ roulette_game.name }}" style="height: 150px; object-fit: cover;">
+                        {% endif %}
+                        <div class="card-body">
+                          <h5 class="card-title">{{ roulette_game.name }}</h5>
+                          <p class="card-text">{{ roulette_game.description|default:'Попробуйте удачу!' }}</p>
+                          <div class="d-flex justify-content-between align-items-center">
+                            <span class="fw-bold text-primary">{{ roulette_game.price }}₽</span>
+                            <span class="badge bg-info">Приз в любом случае</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  {% empty %}
+                    <div class="col-12">
+                      <div class="alert alert-warning">
+                        <h5>Рулетки недоступны</h5>
+                        <p>В данный момент нет активных рулеток.</p>
+                      </div>
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="col-12 col-md-4">
+            <div class="card">
+              <div class="card-body">
+                <h5 class="card-title">Возможные призы</h5>
+                <div class="row g-2">
+                  {% for game in available_games %}
+                    <div class="col-6">
+                      <div class="card">
+                        {% if game.image_url %}
+                          <img src="{{ game.image_url }}" class="card-img-top" alt="{{ game.title }}" style="height: 80px; object-fit: cover;">
+                        {% endif %}
+                        <div class="card-body p-2">
+                          <h6 class="card-title small">{{ game.title|truncatechars:20 }}</h6>
+                        </div>
+                      </div>
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Кнопка вращения -->
+        <div class="text-center mt-4">
+          <button id="spinButton" class="btn btn-warning btn-lg" disabled>
+            <i class="bi bi-arrow-clockwise"></i> Вращать рулетку
+          </button>
+        </div>
+
+        <!-- Результат -->
+        <div id="resultModal" class="modal fade" tabindex="-1">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">Результат вращения</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body text-center">
+                <div id="resultContent">
+                  <!-- Результат будет загружен через AJAX -->
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      {% else %}
+        <div class="alert alert-warning text-center">
+          <h4>Попытки исчерпаны</h4>
+          <p>Вы использовали все попытки на сегодня. Возвращайтесь завтра!</p>
+          <a href="{% url 'store:list' %}" class="btn btn-primary">Вернуться в магазин</a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const rouletteOptions = document.querySelectorAll('.roulette-option');
+    const spinButton = document.getElementById('spinButton');
+    const resultModal = document.getElementById('resultModal');
+    const resultContent = document.getElementById('resultContent');
+    let selectedGameId = null;
+
+    // Выбор рулетки
+    rouletteOptions.forEach(option => {
+        option.addEventListener('click', function() {
+            // Убираем выделение с других опций
+            rouletteOptions.forEach(opt => opt.classList.remove('border-primary', 'border-3'));
+            
+            // Выделяем выбранную опцию
+            this.classList.add('border-primary', 'border-3');
+            selectedGameId = this.dataset.gameId;
+            spinButton.disabled = false;
+        });
+    });
+
+    // Вращение рулетки
+    spinButton.addEventListener('click', function() {
+        if (!selectedGameId) return;
+
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Вращение...';
+
+        // Отправляем AJAX запрос
+        fetch('{% url "store:spin_roulette" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: `roulette_game_id=${selectedGameId}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (data.won_game) {
+                    resultContent.innerHTML = `
+                        <div class="alert alert-success">
+                            <h4>🎉 Поздравляем!</h4>
+                            <p>Вы получили игру:</p>
+                            <div class="card mx-auto" style="max-width: 200px;">
+                                <img src="${data.won_game.image_url}" class="card-img-top" alt="${data.won_game.title}">
+                                <div class="card-body">
+                                    <h6 class="card-title">${data.won_game.title}</h6>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // Обновляем информацию о попытках и балансе
+                document.querySelector('.badge.bg-primary').textContent = `Попыток: ${data.attempts_remaining}/5`;
+                document.querySelector('.badge.bg-success').textContent = `Баланс: ${data.new_balance}₽`;
+                
+                // Показываем модальное окно
+                new bootstrap.Modal(resultModal).show();
+                
+                // Если попытки закончились, перезагружаем страницу
+                if (data.attempts_remaining === 0) {
+                    setTimeout(() => {
+                        location.reload();
+                    }, 3000);
+                }
+            } else {
+                alert('Ошибка: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Произошла ошибка при вращении рулетки');
+        })
+        .finally(() => {
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Вращать рулетку';
+        });
+    });
+});
+</script>
+
+<style>
+.roulette-option {
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.roulette-option:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.roulette-option.border-primary {
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
+}
+</style>
+{% endblock %}
